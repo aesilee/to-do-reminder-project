@@ -1,4 +1,11 @@
-let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+let tasks = [];
+let updateInterval;
+let selectedHour = "10";
+let selectedMinute = "00";
+let selectedAmPm = "AM";
+let selectedCategory = "general";
+
+const categories = ['general', 'work', 'personal', 'shopping', 'school', 'home'];
 
 document.addEventListener('DOMContentLoaded', function() {
     updateDate();
@@ -6,7 +13,125 @@ document.addEventListener('DOMContentLoaded', function() {
     updateStats();
     renderAllViews();
     renderTodaysTasksOverview();
+    setupTimeSelectors();
+    setupCategorySelector();
+    
+    startRealTimeUpdates();
 });
+
+function startRealTimeUpdates() {
+    if (updateInterval) clearInterval(updateInterval);
+    
+    updateInterval = setInterval(() => {
+        updateDate();
+        updateGreeting();
+        checkTaskActivation();
+        checkOverdueTasks();
+        updateStats();
+        renderAllViews();
+        renderTodaysTasksOverview();
+    }, 60000); // Check every minute
+}
+
+function setupTimeSelectors() {
+    // Setup hour picker (1-12)
+    const hours = Array.from({length: 12}, (_, i) => (i + 1).toString());
+    setupScrollPicker('hourList', hours, selectedHour, (value) => {
+        selectedHour = value;
+    });
+    
+    // Setup minute picker (00-59)
+    const minutes = Array.from({length: 60}, (_, i) => i.toString().padStart(2, '0'));
+    setupScrollPicker('minuteList', minutes, selectedMinute, (value) => {
+        selectedMinute = value;
+    });
+    
+    // Setup AM/PM picker
+    const ampmOptions = ['AM', 'PM'];
+    setupScrollPicker('ampmList', ampmOptions, selectedAmPm, (value) => {
+        selectedAmPm = value;
+    });
+}
+
+function setupCategorySelector() {
+    const select = document.getElementById('taskCategory');
+    select.value = selectedCategory;
+    select.addEventListener('change', (e) => {
+        selectedCategory = e.target.value;
+    });
+}
+
+function setupScrollPicker(containerId, options, defaultValue, onSelect) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    const defaultIdx = options.indexOf(defaultValue);
+    const scrollIndex = defaultIdx >= 0 ? defaultIdx : 0;
+    
+    options.forEach((option, idx) => {
+        const item = document.createElement('div');
+        const isActive = idx === scrollIndex;
+        item.className = `scroll-picker-item ${isActive ? 'active' : ''}`;
+        item.textContent = option;
+        item.dataset.value = option;
+        item.dataset.index = idx;
+        container.appendChild(item);
+    });
+    
+    const parent = container.parentElement;
+    setTimeout(() => {
+        const activeItem = container.querySelector('.active') || container.children[scrollIndex];
+        if (activeItem) {
+            const itemHeight = 40;
+            const containerHeight = parent.offsetHeight;
+            const scrollTop = activeItem.offsetTop - (containerHeight / 2) + (itemHeight / 2);
+            container.scrollTop = scrollTop;
+        }
+    }, 0);
+
+    // Auto-select on scroll
+    let scrollTimeout;
+    container.addEventListener('scroll', () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+            const itemHeight = 40;
+            const containerHeight = parent.offsetHeight;
+            const centerY = containerHeight / 2;
+            
+            let closestItem = null;
+            let closestDistance = Infinity;
+            
+            container.querySelectorAll('.scroll-picker-item').forEach(item => {
+                const itemCenterY = item.offsetTop + itemHeight / 2 - container.scrollTop;
+                const distance = Math.abs(itemCenterY - centerY);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestItem = item;
+                }
+            });
+            
+            if (closestItem) {
+                const value = closestItem.dataset.value;
+                container.querySelectorAll('.scroll-picker-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                closestItem.classList.add('active');
+                onSelect(value);
+            }
+        }, 100);
+    });
+}
+
+function convertTo24Hour(hour, minute, ampm) {
+    let hour24 = parseInt(hour);
+    if (ampm === 'PM' && hour24 !== 12) {
+        hour24 += 12;
+    } else if (ampm === 'AM' && hour24 === 12) {
+        hour24 = 0;
+    }
+    return `${hour24.toString().padStart(2, '0')}:${minute}`;
+}
 
 function updateDate() {
     const now = new Date();
@@ -24,9 +149,9 @@ function getTimeOfDay() {
 function getGreetingEmoji() {
     const timeOfDay = getTimeOfDay();
     const emojis = {
-        morning: '🌅',
-        afternoon: '🌤️',
-        evening: '🌙'
+        morning: 'ðŸŒ…',
+        afternoon: 'ðŸŒ¤ï¸',
+        evening: 'ðŸŒ™'
     };
     return emojis[timeOfDay];
 }
@@ -45,10 +170,10 @@ function updateGreeting() {
     const now = new Date();
     const today = new Date().toDateString();
     
-    // Get today's tasks
     const todaysTasks = tasks.filter(t => 
         !t.completed && 
-        new Date(t.date).toDateString() === today
+        new Date(t.date).toDateString() === today &&
+        isTaskActive(t, now)
     );
 
     const greeting = getGreetingText();
@@ -58,19 +183,84 @@ function updateGreeting() {
     let taskDisplay = '';
 
     if (todaysTasks.length > 0) {
-        // Get unique categories for today's tasks
         const categories = [...new Set(todaysTasks.map(task => task.category))];
         if (categories.length === 1) {
-            taskDisplay = `You have ${categories[0]} today`;
+            taskDisplay = `You have ${categories[0]} tasks today`;
         } else {
             taskDisplay = `You have ${todaysTasks.length} tasks today`;
         }
     } else {
-        taskDisplay = `✨ Enjoy your free time today!`;
+        taskDisplay = `âœ¨ Enjoy your free time today!`;
     }
 
     document.getElementById('greeting').textContent = display;
     document.getElementById('taskDisplay').textContent = taskDisplay;
+}
+
+function isTaskActive(task, now) {
+    if (!task.date) return true;
+    
+    const taskDate = new Date(task.date).toDateString();
+    const today = new Date(now).toDateString();
+    
+    if (taskDate !== today) return false;
+    
+    // Check if task time has arrived
+    if (task.time) {
+        const taskDateTime = new Date(`${task.date}T${task.time}`);
+        return taskDateTime <= now;
+    }
+    
+    return true;
+}
+
+function checkTaskActivation() {
+    const now = new Date();
+    let needsUpdate = false;
+
+    tasks.forEach(task => {
+        if (!task.completed && !task.active && task.date && task.time) {
+            const taskDate = new Date(task.date).toDateString();
+            const today = new Date(now).toDateString();
+            
+            if (taskDate === today) {
+                const taskDateTime = new Date(`${task.date}T${task.time}`);
+                if (taskDateTime <= now) {
+                    task.active = true;
+                    needsUpdate = true;
+                }
+            }
+        }
+    });
+
+    if (needsUpdate) {
+        saveTasks();
+    }
+}
+
+function checkOverdueTasks() {
+    const now = new Date();
+    let needsUpdate = false;
+
+    tasks.forEach(task => {
+        if (!task.completed && !task.overdue && task.date) {
+            const taskDate = new Date(task.date);
+            const today = new Date(now);
+            
+            // Set time to start of day for comparison
+            today.setHours(0, 0, 0, 0);
+            
+            // Task is overdue if date has passed and it's not active
+            if (taskDate < today && !task.active) {
+                task.overdue = true;
+                needsUpdate = true;
+            }
+        }
+    });
+
+    if (needsUpdate) {
+        saveTasks();
+    }
 }
 
 function showView(viewName) {
@@ -83,6 +273,8 @@ function showView(viewName) {
 function openModal() {
     document.getElementById('taskModal').classList.add('active');
     document.getElementById('taskDate').valueAsDate = new Date();
+    setupTimeSelectors();
+    setupCategorySelector();
 }
 
 function closeModal() {
@@ -92,18 +284,38 @@ function closeModal() {
 
 function addTask(e) {
     e.preventDefault();
+    const category = document.getElementById('taskCategory').value;
+    const time24 = convertTo24Hour(selectedHour, selectedMinute, selectedAmPm);
+    
     const task = {
         id: Date.now(),
         title: document.getElementById('taskTitle').value,
         date: document.getElementById('taskDate').value,
-        time: document.getElementById('taskTime').value,
-        category: document.getElementById('taskCategory').value,
+        time: time24,
+        displayTime: `${selectedHour}:${selectedMinute} ${selectedAmPm}`,
+        category: category,
         notes: document.getElementById('taskNotes').value,
         completed: false,
-        completedAt: null
+        completedAt: null,
+        overdue: false,
+        active: false // Task becomes active when its time arrives
     };
+    
+    // Check if task should be active immediately
+    const now = new Date();
+    const taskDate = new Date(task.date).toDateString();
+    const today = new Date(now).toDateString();
+    
+    if (taskDate === today) {
+        const taskDateTime = new Date(`${task.date}T${task.time}`);
+        if (taskDateTime <= now) {
+            task.active = true;
+        }
+    }
+    
     tasks.push(task);
     saveTasks();
+    checkOverdueTasks();
     updateStats();
     updateGreeting();
     renderAllViews();
@@ -137,13 +349,37 @@ function saveTasks() {
     localStorage.setItem('tasks', JSON.stringify(tasks));
 }
 
+function loadTasks() {
+    const stored = localStorage.getItem('tasks');
+    if (stored) {
+        tasks = JSON.parse(stored);
+    }
+}
+
 function updateStats() {
+    checkTaskActivation();
+    checkOverdueTasks();
+    const now = new Date();
     const today = new Date().toDateString();
-    const todayTasks = tasks.filter(t => !t.completed && new Date(t.date).toDateString() === today);
-    const scheduledTasks = tasks.filter(t => !t.completed && new Date(t.date) > new Date() && new Date(t.date).toDateString() !== today);
+    
+    const todayTasks = tasks.filter(t => {
+        if (t.completed) return false;
+        const taskDate = new Date(t.date).toDateString();
+        if (taskDate !== today) return false;
+        return isTaskActive(t, now);
+    });
+    
+    const scheduledTasks = tasks.filter(t => {
+        if (t.completed || t.overdue) return false;
+        const taskDate = new Date(t.date);
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        return taskDate > todayDate;
+    });
+    
     const allTasks = tasks.filter(t => !t.completed);
     const completedTasks = tasks.filter(t => t.completed);
-    const overdueTasks = tasks.filter(t => !t.completed && new Date(t.date) < new Date());
+    const overdueTasks = tasks.filter(t => !t.completed && t.overdue);
 
     document.getElementById('todayNum').textContent = todayTasks.length;
     document.getElementById('scheduledNum').textContent = scheduledTasks.length;
@@ -161,13 +397,28 @@ function renderAllViews() {
 }
 
 function renderTodayTasks() {
+    const now = new Date();
     const today = new Date().toDateString();
-    const todayTasks = tasks.filter(t => !t.completed && new Date(t.date).toDateString() === today);
+    const todayTasks = tasks.filter(t => {
+        if (t.completed) return false;
+        const taskDate = new Date(t.date).toDateString();
+        if (taskDate !== today) return false;
+        return isTaskActive(t, now);
+    });
     renderTasks('todayTasks', todayTasks);
 }
 
 function renderScheduledTasks() {
-    const scheduledTasks = tasks.filter(t => !t.completed && new Date(t.date) > new Date());
+    const now = new Date();
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    
+    const scheduledTasks = tasks.filter(t => {
+        if (t.completed || t.overdue) return false;
+        const taskDate = new Date(t.date);
+        taskDate.setHours(0, 0, 0, 0);
+        return taskDate > todayDate;
+    });
     renderTasks('scheduledTasks', scheduledTasks);
 }
 
@@ -182,51 +433,68 @@ function renderCompletedTasks() {
 }
 
 function renderOverdueTasks() {
-    const overdueTasks = tasks.filter(t => !t.completed && new Date(t.date) < new Date());
+    const overdueTasks = tasks.filter(t => !t.completed && t.overdue);
     renderTasks('overdueTasks', overdueTasks);
 }
 
 function renderTodaysTasksOverview() {
+    const now = new Date();
     const today = new Date().toDateString();
-    const todaysTasks = tasks.filter(t => !t.completed && new Date(t.date).toDateString() === today);
+    const todaysTasks = tasks.filter(t => {
+        if (t.completed) return false;
+        const taskDate = new Date(t.date).toDateString();
+        if (taskDate !== today) return false;
+        return isTaskActive(t, now);
+    });
+    
     const container = document.getElementById('todaysTasksOverview');
     const countElement = document.getElementById('todayTaskCount');
     
-    // Update task count
     countElement.textContent = `${todaysTasks.length} ${todaysTasks.length === 1 ? 'task' : 'tasks'}`;
     
     if (todaysTasks.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>No tasks for today. Enjoy your free time!</p></div>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">ðŸ"­</div><p>No tasks for today. Enjoy your free time!</p></div>';
         return;
     }
     
-    container.innerHTML = todaysTasks.map(task => createTaskElement(task)).join('');
+    container.innerHTML = todaysTasks.map(task => createTaskElement(task, now)).join('');
 }
 
 function renderTasks(containerId, taskList) {
     const container = document.getElementById(containerId);
     if (taskList.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>No tasks here</p></div>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">ðŸ"­</div><p>No tasks here</p></div>';
         return;
     }
-    container.innerHTML = taskList.map(task => createTaskElement(task)).join('');
+    const now = new Date();
+    container.innerHTML = taskList.map(task => createTaskElement(task, now)).join('');
 }
 
-function createTaskElement(task) {
+function createTaskElement(task, now) {
     const taskDate = new Date(task.date);
-    const today = new Date();
-    const isOverdue = taskDate < today && !task.completed;
+    const today = new Date().toDateString();
+    const taskDateStr = taskDate.toDateString();
+    
+    let statusClass = '';
+    if (task.completed) {
+        statusClass = 'completed';
+    } else if (task.overdue) {
+        statusClass = 'overdue';
+    } else if (taskDateStr === today && !isTaskActive(task, now)) {
+        statusClass = 'scheduled';
+    }
     
     let dateText = task.date ? taskDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No date';
-    if (task.time) dateText += ` • ${task.time}`;
+    let timeText = task.displayTime ? `â° ${task.displayTime}` : '';
 
     return `
-        <div class="task-card ${task.completed ? 'completed' : ''} ${isOverdue ? 'overdue' : ''}">
+        <div class="task-card ${statusClass}">
             <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
             <div class="task-content">
                 <div class="task-title">${task.title}</div>
                 <div class="task-meta">
-                    <span class="task-date">📍 ${dateText}</span>
+                    <span class="task-date">ðŸ"" ${dateText}</span>
+                    ${timeText ? `<span class="task-time">${timeText}</span>` : ''}
                     <span class="task-category ${task.category}">${task.category}</span>
                 </div>
             </div>
@@ -243,3 +511,11 @@ window.onclick = function(event) {
         closeModal();
     }
 }
+
+loadTasks();
+document.addEventListener('DOMContentLoaded', function() {
+    checkTaskActivation();
+    checkOverdueTasks();
+    updateStats();
+    renderAllViews();
+});

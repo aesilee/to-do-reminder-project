@@ -124,17 +124,44 @@
                     <label for="taskDate">Due Date</label>
                     <input type="date" id="taskDate">
                 </div>
-                <div class="form-group">
-                    <label for="taskTime">Time</label>
-                    <input type="time" id="taskTime">
+                <div class="time-group">
+                    <div class="form-group time-input">
+                        <label>Hour</label>
+                        <div class="scroll-picker">
+                            <div class="scroll-picker-list" id="hourList"></div>
+                            <div class="scroll-picker-overlay">
+                                <div class="scroll-picker-center"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group time-input">
+                        <label>Minute</label>
+                        <div class="scroll-picker">
+                            <div class="scroll-picker-list" id="minuteList"></div>
+                            <div class="scroll-picker-overlay">
+                                <div class="scroll-picker-center"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group time-input">
+                        <label>AM/PM</label>
+                        <div class="scroll-picker">
+                            <div class="scroll-picker-list" id="ampmList"></div>
+                            <div class="scroll-picker-overlay">
+                                <div class="scroll-picker-center"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label for="taskCategory">Category</label>
-                    <select id="taskCategory">
+                    <label>Category</label>
+                    <select id="taskCategory" class="category-select">
                         <option value="general">General</option>
                         <option value="work">Work</option>
                         <option value="personal">Personal</option>
                         <option value="shopping">Shopping</option>
+                        <option value="school">School</option>
+                        <option value="home">Home</option>
                     </select>
                 </div>
                 <div class="form-group">

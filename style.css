@@ -153,7 +153,6 @@ body {
     font-weight: 500;
 }
 
-/* Today's Tasks Section */
 .todays-tasks-section {
     background: #ffffff;
     border-radius: 16px;
@@ -261,6 +260,16 @@ body {
     color: #5B88B2;
 }
 
+.task-card.overdue {
+    border-left-color: #E74C3C;
+    background: rgba(231, 76, 60, 0.05);
+}
+
+.task-card.scheduled {
+    border-left-color: #f86c6c;
+    background: rgba(248, 108, 108, 0.05);
+}
+
 .task-checkbox {
     width: 24px;
     height: 24px;
@@ -294,6 +303,13 @@ body {
     gap: 4px;
 }
 
+.task-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #E74C3C;
+}
+
 .task-category {
     display: inline-block;
     padding: 4px 12px;
@@ -321,6 +337,16 @@ body {
 
 .task-category.general {
     background: rgba(91, 136, 178, 0.15);
+    color: #000000;
+}
+
+.task-category.school {
+    background: rgba(139, 211, 156, 0.2);
+    color: #000000;
+}
+
+.task-category.home {
+    background: rgba(255, 193, 7, 0.2);
     color: #000000;
 }
 
@@ -409,6 +435,8 @@ body {
     box-shadow: 0 20px 60px rgba(18, 44, 79, 0.4);
     animation: slideUp 0.3s;
     border: 1px solid rgba(91, 136, 178, 0.2);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 @keyframes slideUp {
@@ -454,7 +482,6 @@ body {
 }
 
 .form-group input,
-.form-group select,
 .form-group textarea {
     width: 100%;
     padding: 12px;
@@ -468,11 +495,138 @@ body {
 }
 
 .form-group input:focus,
-.form-group select:focus,
 .form-group textarea:focus {
     outline: none;
     border-color: #5B88B2;
     background: #f0f0f0;
+}
+
+.time-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+}
+
+.time-input {
+    margin-bottom: 0;
+}
+
+.scroll-picker {
+    position: relative;
+    height: 150px;
+    border: 2px solid rgba(91, 136, 178, 0.3);
+    border-radius: 12px;
+    background: #f0f0f0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scroll-picker-list {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: scroll;
+    scroll-behavior: smooth;
+    padding: 60px 0;
+    width: 100%;
+}
+
+.scroll-picker-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.scroll-picker-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scroll-picker-list::-webkit-scrollbar-thumb {
+    background: rgba(91, 136, 178, 0.3);
+    border-radius: 2px;
+}
+
+.scroll-picker-item {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.scroll-picker-item.active {
+    color: #5B88B2;
+    font-weight: 700;
+    font-size: 1.3rem;
+}
+
+.scroll-picker-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    border: 1px solid rgba(91, 136, 178, 0.2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scroll-picker-center {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 40px;
+    border-top: 2px solid rgba(91, 136, 178, 0.4);
+    border-bottom: 2px solid rgba(91, 136, 178, 0.4);
+    pointer-events: none;
+}
+
+.category-select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid rgba(91, 136, 178, 0.3);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #f0f0f0;
+    color: #000000;
+    cursor: pointer;
+    transition: all 0.3s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%235B88B2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 20px;
+    padding-right: 40px;
+}
+
+.category-select:focus {
+    outline: none;
+    border-color: #5B88B2;
+    background-color: #f0f0f0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%235B88B2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 20px;
+}
+
+.category-select:hover {
+    border-color: #5B88B2;
+    background-color: #e8e8e8;
+}
+
+.category-select option {
+    background: #ffffff;
+    color: #000000;
+    padding: 10px;
 }
 
 .form-actions {
@@ -543,6 +697,11 @@ body {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
+    }
+
+    .time-group {
+        grid-template-columns: 1fr;
+        gap: 15px;
     }
 
     .add-task-btn {
