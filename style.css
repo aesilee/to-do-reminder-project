@@ -470,7 +470,7 @@ body {
 }
 
 .form-group {
-    margin-bottom: 18px;
+    margin-bottom: 20px;
 }
 
 .form-group label {
@@ -508,7 +508,7 @@ body {
 }
 
 .time-input {
-    margin-bottom: 0;
+    margin-bottom: 20px;
 }
 
 .scroll-picker {

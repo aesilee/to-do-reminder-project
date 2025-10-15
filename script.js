@@ -149,9 +149,9 @@ function getTimeOfDay() {
 function getGreetingEmoji() {
     const timeOfDay = getTimeOfDay();
     const emojis = {
-        morning: 'ðŸŒ…',
-        afternoon: 'ðŸŒ¤ï¸',
-        evening: 'ðŸŒ™'
+        morning: '🌅',
+        afternoon: '🌤️',
+        evening: '🌙'
     };
     return emojis[timeOfDay];
 }
@@ -167,13 +167,12 @@ function getGreetingText() {
 }
 
 function updateGreeting() {
-    const now = new Date();
     const today = new Date().toDateString();
     
     const todaysTasks = tasks.filter(t => 
         !t.completed && 
-        new Date(t.date).toDateString() === today &&
-        isTaskActive(t, now)
+        !t.overdue &&
+        new Date(t.date).toDateString() === today
     );
 
     const greeting = getGreetingText();
@@ -190,7 +189,7 @@ function updateGreeting() {
             taskDisplay = `You have ${todaysTasks.length} tasks today`;
         }
     } else {
-        taskDisplay = `âœ¨ Enjoy your free time today!`;
+        taskDisplay = `✨ Enjoy your free time today!`;
     }
 
     document.getElementById('greeting').textContent = display;
@@ -363,10 +362,9 @@ function updateStats() {
     const today = new Date().toDateString();
     
     const todayTasks = tasks.filter(t => {
-        if (t.completed) return false;
+        if (t.completed || t.overdue) return false;
         const taskDate = new Date(t.date).toDateString();
-        if (taskDate !== today) return false;
-        return isTaskActive(t, now);
+        return taskDate === today;
     });
     
     const scheduledTasks = tasks.filter(t => {
@@ -374,6 +372,7 @@ function updateStats() {
         const taskDate = new Date(t.date);
         const todayDate = new Date();
         todayDate.setHours(0, 0, 0, 0);
+        taskDate.setHours(0, 0, 0, 0);
         return taskDate > todayDate;
     });
     
@@ -397,19 +396,31 @@ function renderAllViews() {
 }
 
 function renderTodayTasks() {
-    const now = new Date();
     const today = new Date().toDateString();
     const todayTasks = tasks.filter(t => {
-        if (t.completed) return false;
+        if (t.completed || t.overdue) return false;
         const taskDate = new Date(t.date).toDateString();
-        if (taskDate !== today) return false;
-        return isTaskActive(t, now);
+        return taskDate === today;
     });
+    
+    // Sort by time (tasks with no time go to the end)
+    todayTasks.sort((a, b) => {
+        if (!a.time && !b.time) return 0;
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        
+        // Convert time strings to comparable format
+        const [aHour, aMin] = a.time.split(':').map(Number);
+        const [bHour, bMin] = b.time.split(':').map(Number);
+        
+        if (aHour !== bHour) return aHour - bHour;
+        return aMin - bMin;
+    });
+    
     renderTasks('todayTasks', todayTasks);
 }
 
 function renderScheduledTasks() {
-    const now = new Date();
     const todayDate = new Date();
     todayDate.setHours(0, 0, 0, 0);
     
@@ -419,6 +430,24 @@ function renderScheduledTasks() {
         taskDate.setHours(0, 0, 0, 0);
         return taskDate > todayDate;
     });
+    
+    // Sort by date then time
+    scheduledTasks.sort((a, b) => {
+        const dateCompare = new Date(a.date) - new Date(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        
+        if (!a.time && !b.time) return 0;
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        
+        // Convert time strings to comparable format
+        const [aHour, aMin] = a.time.split(':').map(Number);
+        const [bHour, bMin] = b.time.split(':').map(Number);
+        
+        if (aHour !== bHour) return aHour - bHour;
+        return aMin - bMin;
+    });
+    
     renderTasks('scheduledTasks', scheduledTasks);
 }
 
@@ -438,13 +467,25 @@ function renderOverdueTasks() {
 }
 
 function renderTodaysTasksOverview() {
-    const now = new Date();
     const today = new Date().toDateString();
     const todaysTasks = tasks.filter(t => {
-        if (t.completed) return false;
+        if (t.completed || t.overdue) return false;
         const taskDate = new Date(t.date).toDateString();
-        if (taskDate !== today) return false;
-        return isTaskActive(t, now);
+        return taskDate === today;
+    });
+    
+    // Sort by time (tasks with no time go to the end)
+    todaysTasks.sort((a, b) => {
+        if (!a.time && !b.time) return 0;
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        
+        // Convert time strings to comparable format
+        const [aHour, aMin] = a.time.split(':').map(Number);
+        const [bHour, bMin] = b.time.split(':').map(Number);
+        
+        if (aHour !== bHour) return aHour - bHour;
+        return aMin - bMin;
     });
     
     const container = document.getElementById('todaysTasksOverview');
@@ -453,17 +494,18 @@ function renderTodaysTasksOverview() {
     countElement.textContent = `${todaysTasks.length} ${todaysTasks.length === 1 ? 'task' : 'tasks'}`;
     
     if (todaysTasks.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">ðŸ"­</div><p>No tasks for today. Enjoy your free time!</p></div>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>No tasks for today. Enjoy your free time!</p></div>';
         return;
     }
     
+    const now = new Date();
     container.innerHTML = todaysTasks.map(task => createTaskElement(task, now)).join('');
 }
 
 function renderTasks(containerId, taskList) {
     const container = document.getElementById(containerId);
     if (taskList.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">ðŸ"­</div><p>No tasks here</p></div>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>No tasks here</p></div>';
         return;
     }
     const now = new Date();
@@ -480,20 +522,23 @@ function createTaskElement(task, now) {
         statusClass = 'completed';
     } else if (task.overdue) {
         statusClass = 'overdue';
-    } else if (taskDateStr === today && !isTaskActive(task, now)) {
-        statusClass = 'scheduled';
     }
     
     let dateText = task.date ? taskDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No date';
-    let timeText = task.displayTime ? `â° ${task.displayTime}` : '';
+    let timeText = task.displayTime ? `⏰ ${task.displayTime}` : '';
+    let titleDisplay = task.title;
+    
+    if (task.overdue) {
+        titleDisplay = `❗ ${task.title} ❗`;
+    }
 
     return `
         <div class="task-card ${statusClass}">
             <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
             <div class="task-content">
-                <div class="task-title">${task.title}</div>
+                <div class="task-title">${titleDisplay}</div>
                 <div class="task-meta">
-                    <span class="task-date">ðŸ"" ${dateText}</span>
+                    <span class="task-date">📍 ${dateText}</span>
                     ${timeText ? `<span class="task-time">${timeText}</span>` : ''}
                     <span class="task-category ${task.category}">${task.category}</span>
                 </div>
